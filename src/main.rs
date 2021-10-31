@@ -33,9 +33,10 @@ fn main() {
 
         // the last element is whitespace junk, ignore
         paragraph.pop();
+
         for (i, &word) in paragraph.iter().enumerate() {
 
-            // move on if this is a 'stop word', including ones added by the user
+            // move on if this is a stop word, including ones added by the user
             if stop_words.contains(&word) {
                 continue;
             }
@@ -43,7 +44,6 @@ fn main() {
             let result = paragraph[i+1..].iter().position(|&x|   x == word);
             let _ =  match result {
                 Some(res) => {
-                    println!("{}", res);
                     let frm = format!("\n{}\n{}", word, &res.to_string());
                     report.push_str(&frm);
                 },
@@ -54,5 +54,3 @@ fn main() {
 
     let _ = fs::write("report.txt", report);
 }
-
-// need to iter fooooorward. 
