@@ -1,8 +1,7 @@
-use std::{fs};
+use std::fs;
 use structopt::StructOpt;
-use regex::{Regex};
+use regex::Regex;
 
-mod stop_words;
 
 /// Get a file to parse.
 #[derive(StructOpt, Debug)]
@@ -15,30 +14,29 @@ struct Cli {
 
 
 fn main() {
-    println!("Hello, world!");
     let args = Cli::from_args();
-    println!("{:?}", args);
 
-    let content = std::fs::read_to_string(&args.path).expect("Could not read file");
-
+    let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
     let vec = content.lines();
 
     let seperator = Regex::new(r"([ ,.]+)").expect("Invalid regex");
     let paragraphs_of_word_arrays: Vec<Vec<&str>> = vec.map(|line| seperator.split(line).into_iter().collect::<Vec<&str>>()).collect();
+    
+    
+    let stop_words_string = fs::read_to_string("stop_words.txt").expect("Could not read stop words file");
+    let stop_words = stop_words_string.split("\n").collect::<Vec<&str>>();
 
     let _ = fs::File::create("report.txt").expect("Failed to create report file.");
-
     let mut report = String::new();
 
-    for paragraph in paragraphs_of_word_arrays {
-        for (i, &word) in paragraph.iter().enumerate() {
-            // move on if this is 'a name'
-            if word.chars().nth(0).unwrap().is_uppercase() {
-                continue
-            }
+    for mut paragraph in paragraphs_of_word_arrays {
 
-            // move on if this is a 'stop word'
-            if stop_words::STOP_WORDS.contains(&word) {
+        // the last element is whitespace junk, ignore
+        paragraph.pop();
+        for (i, &word) in paragraph.iter().enumerate() {
+
+            // move on if this is a 'stop word', including ones added by the user
+            if stop_words.contains(&word) {
                 continue;
             }
 
