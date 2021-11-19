@@ -1,17 +1,36 @@
-use std::fs;
+use std::{fmt::format, fs, path::PathBuf};
 use structopt::StructOpt;
 use regex::Regex;
+use itertools;
 
-
-/// Get a file to parse.
 #[derive(StructOpt, Debug)]
-#[structopt(about = "Create a Typescript file")]
+#[structopt(name="tonal-distancing", about = "Look for repeated words")]
 struct Cli {
     /// Name of file
     #[structopt(parse(from_os_str))]
-    path: std::path::PathBuf,
+    path: PathBuf,
+
+    /// Set how far ahead to check
+    #[structopt(short = "l", long = "lookahead", default_value = "50")]
+    buffer_length: u32,
+
+    // Optional personal stop-word list
+    #[structopt(short = "s", long = "stopwords")]
+    stop_words: Option<PathBuf>
 }
 
+#[derive(Debug, PartialEq, Clone)]
+struct Word {
+    text: String,
+    repeated: bool,
+    paragraph: u32
+}
+
+impl Word {
+    fn represent(&self) -> String {
+        format!("Word: {},\t\t Paragraph: {}", self.text, self.paragraph)
+    }
+}
 
 fn main() {
     let args = Cli::from_args();
@@ -19,38 +38,55 @@ fn main() {
     let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
     let vec = content.lines();
 
-    let seperator = Regex::new(r"([ ,.]+)").expect("Invalid regex");
-    let paragraphs_of_word_arrays: Vec<Vec<&str>> = vec.map(|line| seperator.split(line).into_iter().collect::<Vec<&str>>()).collect();
+    let seperator = Regex::new(r"([ !',.\n]+)").expect("Invalid regex");
+
     
+    // get all our words
+    let paragraphs_of_word_arrays: Vec<Vec<Word>> = vec
+            .enumerate().map(|(i, line)| seperator.split(line)
+            .into_iter().map(|word| Word {text: String::from(word), repeated: false, paragraph: i as u32})
+            .collect::<Vec<Word>>()).collect();
+
+    let word_vec = itertools::concat(paragraphs_of_word_arrays);
     
-    let stop_words_string = fs::read_to_string("stop_words.txt").expect("Could not read stop words file");
+    // get our stop words
+    let stop_words_string = match &args.stop_words {
+        Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
+        None => fs::read_to_string("stop_words.txt").expect("Could not read the stop words file")
+    };
     let stop_words = stop_words_string.split("\n").collect::<Vec<&str>>();
 
+
+    // initialize the report
     let _ = fs::File::create("report.txt").expect("Failed to create report file.");
-    let mut report = String::new();
+    // let mut report = String::new();
 
-    for mut paragraph in paragraphs_of_word_arrays {
-
-        // the last element is whitespace junk, ignore
-        paragraph.pop();
-
-        for (i, &word) in paragraph.iter().enumerate() {
-
-            // move on if this is a stop word, including ones added by the user
-            if stop_words.contains(&word) {
-                continue;
-            }
-
-            let result = paragraph[i+1..].iter().position(|&x|   x == word);
-            let _ =  match result {
-                Some(res) => {
-                    let frm = format!("\n{}\n{}", word, &res.to_string());
-                    report.push_str(&frm);
-                },
-                None => continue
-            };
+    // mark up the vector
+    let marked_up_vec: Vec<Word> = word_vec.clone().into_iter().enumerate().map(|(i, word)| {
+        if stop_words.contains(&&word.text.to_lowercase().as_ref()) {
+            return word
         }
-    }
+
+        // println!("{}", args.buffer_length as usize);
+        let end = if i + args.buffer_length as usize > word_vec.len() {
+            word_vec.len()
+        } else {
+            i + args.buffer_length as usize
+        };
+
+        println!("{}", end);
+
+        if word_vec[i+1..end].into_iter().any(|x| x.text == word.text) {
+            return Word {text: word.text, repeated: true, paragraph: word.paragraph}
+        }
+        return word
+    }).collect::<Vec<Word>>();
+
+    let report = format!(
+        "{}",  marked_up_vec.iter().filter(|word| word.repeated).map(|word| word.represent()).collect::<Vec<String>>().join("\n")
+    );
+
+    println!("{}", report);
 
     let _ = fs::write("report.txt", report);
 }
