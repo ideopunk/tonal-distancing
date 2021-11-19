@@ -1,7 +1,8 @@
-use std::{fmt::format, fs, path::PathBuf};
+use std::{fs, path::PathBuf};
 use structopt::StructOpt;
 use regex::Regex;
 use itertools;
+use std::time::Instant;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name="tonal-distancing", about = "Look for repeated words")]
@@ -23,31 +24,54 @@ struct Cli {
 struct Word {
     text: String,
     repeated: bool,
+    word_position: u32,
     paragraph: u32
 }
 
 impl Word {
     fn represent(&self) -> String {
-        format!("Word: {},\t\t Paragraph: {}", self.text, self.paragraph)
+        format!("Word: {},\t\tParagraph: {},\t\tWord Position: {}", self.text, self.paragraph + 1, self.word_position + 1)
     }
 }
 
-fn main() {
-    let args = Cli::from_args();
-
-    let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
-    let vec = content.lines();
-
+fn split_text_into_words(s: String) -> Vec<Word> {
     let seperator = Regex::new(r"([ !',.\n]+)").expect("Invalid regex");
 
-    
-    // get all our words
-    let paragraphs_of_word_arrays: Vec<Vec<Word>> = vec
-            .enumerate().map(|(i, line)| seperator.split(line)
-            .into_iter().map(|word| Word {text: String::from(word), repeated: false, paragraph: i as u32})
+  // get all our words
+    let paragraphs_of_word_arrays: Vec<Vec<Word>> = s.lines()
+            .enumerate().map(|(i, line)| seperator.split(line) // i is used later to indicate paragraph that owns the word. 
+            .into_iter().enumerate().map(|(j, word)| Word {text: String::from(word), repeated: false, paragraph: i as u32, word_position: j as u32})
             .collect::<Vec<Word>>()).collect();
 
-    let word_vec = itertools::concat(paragraphs_of_word_arrays);
+    itertools::concat(paragraphs_of_word_arrays)
+}
+
+fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
+    v.clone().into_iter().enumerate().map(|(i, word)| {
+        if stop_words.contains(&&word.text.to_lowercase().as_ref()) {
+            return word
+        }
+
+        let end = if i + buffer_length > v.len() {
+            v.len()
+        } else {
+            i + buffer_length 
+        };
+
+        if v[i+1..end].into_iter().any(|x| x.text == word.text) {
+            return Word {text: word.text, repeated: true, paragraph: word.paragraph, word_position: word.word_position}
+        }
+        return word
+    }).collect::<Vec<Word>>()
+}
+
+fn main() {
+    let now = Instant::now();
+    let args = Cli::from_args();
+
+    // get our words.
+    let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
+    let word_vec = split_text_into_words(content);
     
     // get our stop words
     let stop_words_string = match &args.stop_words {
@@ -61,32 +85,18 @@ fn main() {
     let _ = fs::File::create("report.txt").expect("Failed to create report file.");
     // let mut report = String::new();
 
-    // mark up the vector
-    let marked_up_vec: Vec<Word> = word_vec.clone().into_iter().enumerate().map(|(i, word)| {
-        if stop_words.contains(&&word.text.to_lowercase().as_ref()) {
-            return word
-        }
-
-        // println!("{}", args.buffer_length as usize);
-        let end = if i + args.buffer_length as usize > word_vec.len() {
-            word_vec.len()
-        } else {
-            i + args.buffer_length as usize
-        };
-
-        println!("{}", end);
-
-        if word_vec[i+1..end].into_iter().any(|x| x.text == word.text) {
-            return Word {text: word.text, repeated: true, paragraph: word.paragraph}
-        }
-        return word
-    }).collect::<Vec<Word>>();
-
-    let report = format!(
-        "{}",  marked_up_vec.iter().filter(|word| word.repeated).map(|word| word.represent()).collect::<Vec<String>>().join("\n")
+    // mark up the structs. 
+    let marked_up_vec: Vec<Word> = mark_up(word_vec, stop_words, args.buffer_length as usize);
+    
+    // create report.
+    let report = format!("{}",  
+        marked_up_vec.iter().filter(|word| word.repeated).map(|word| word.represent()).collect::<Vec<String>>().join("\n")
     );
 
-    println!("{}", report);
-
+    // write report to file
     let _ = fs::write("report.txt", report);
+
+    let elapsed = now.elapsed();
+    println!("Elapsed: {:.2?}", elapsed);
+
 }
