@@ -37,10 +37,20 @@ impl Word {
 fn split_text_into_words(s: String) -> Vec<Word> {
     let seperator = Regex::new(r"([ !',.\n]+)").expect("Invalid regex");
 
+    let re = Regex::new(r"([\w']+)").unwrap();
+
   // get all our words
     let paragraphs_of_word_arrays: Vec<Vec<Word>> = s.lines()
             .enumerate().map(|(i, line)| seperator.split(line) // i is used later to indicate paragraph that owns the word. 
-            .into_iter().enumerate().map(|(j, word)| Word {text: String::from(word), repeated: false, paragraph: i as u32, word_position: j as u32})
+            .into_iter().enumerate().filter_map(|(j, word)| {
+                let trimmed_word = &re.captures_iter(word).next();
+                
+                match trimmed_word {
+                    Some(trimmed) => Some(Word {text: trimmed[0].to_string(), repeated: false, paragraph: i as u32, word_position: j as u32}),
+                    None => None
+
+                }
+            })
             .collect::<Vec<Word>>()).collect();
 
     itertools::concat(paragraphs_of_word_arrays)
@@ -72,7 +82,7 @@ fn main() {
     // get our words.
     let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
     let word_vec = split_text_into_words(content);
-    
+
     // get our stop words
     let stop_words_string = match &args.stop_words {
         Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
