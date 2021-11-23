@@ -1,10 +1,10 @@
 use docx::{document::BodyContent, DocxFile};
-use itertools;
-use regex::Regex;
 use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
+
+mod spells;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tonal-distancing", about = "Look for repeated words")]
@@ -22,102 +22,6 @@ struct Cli {
     stop_words: Option<PathBuf>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-struct Word {
-    text: String,
-    repeated: bool,
-    word_position: u32,
-    paragraph: u32,
-}
-
-impl Word {
-    fn represent(&self) -> String {
-        let word_buff = vec![' '; 20 - self.text.len()]
-            .into_iter()
-            .collect::<String>();
-
-        let paragraph_buff = vec![' '; 10 - (self.paragraph + 1).to_string().len()]
-            .into_iter()
-            .collect::<String>();
-        format!(
-            "Word: {}{}Paragraph: {}{}Word Position: {}",
-            self.text,
-            word_buff,
-            self.paragraph + 1,
-            paragraph_buff,
-            self.word_position + 1
-        )
-    }
-}
-
-fn split_text_into_words(s: String) -> Vec<Word> {
-    let seperator = Regex::new(r"([ !',.\n]+)").expect("Invalid regex");
-
-    let re = Regex::new(r"([\w']+)").unwrap();
-
-    // get all our words
-    let paragraphs_of_word_arrays: Vec<Vec<Word>> = s
-        .lines()
-        // i is used later to indicate paragraph that owns the word.
-        .enumerate()
-        .map(|(i, line)| {
-            seperator
-                .split(line)
-                .into_iter()
-                .filter_map(|word| {
-                    let trimmed_word = &re.captures_iter(word).next();
-                    match trimmed_word {
-                        Some(trimmed) => Some(trimmed[0].to_string()),
-                        None => None,
-                    }
-                })
-                .enumerate()
-                .map(|(j, text)| Word {
-                    text,
-                    repeated: false,
-                    paragraph: i as u32,
-                    word_position: j as u32,
-                })
-                .collect::<Vec<Word>>()
-        })
-        .collect();
-
-    itertools::concat(paragraphs_of_word_arrays)
-}
-
-fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
-    v.clone()
-        .into_iter()
-        .enumerate()
-        .map(|(i, word)| {
-            let lowercase_word = word.text.to_lowercase();
-            if stop_words.contains(&&lowercase_word.as_ref()) {
-                return word;
-            }
-
-            let end = if i + buffer_length + 1 > v.len() {
-                v.len()
-            } else {
-                i + buffer_length + 1
-            };
-
-            if v[i + 1..end]
-                .into_iter()
-                .any(|x| x.text.to_lowercase() == lowercase_word)
-            {
-                return Word {
-                    text: word.text,
-                    repeated: true,
-                    paragraph: word.paragraph,
-                    word_position: word.word_position,
-                };
-            }
-
-            word
-        })
-        .collect::<Vec<Word>>()
-}
-
 fn main() {
     let now = Instant::now();
 
@@ -131,29 +35,12 @@ fn main() {
     // let content = if &args.path
 
     let content = if ext == "docx" {
-        let docx = DocxFile::from_file(&args.path).unwrap();
-        let doc = docx.parse().unwrap();
-        let mut paragraphs: Vec<Cow<str>> = vec![];
-        for body_content in doc.document.body.iter() {
-            match body_content {
-                BodyContent::Paragraph(stuff) => paragraphs.push(
-                    stuff
-                        .iter_text()
-                        .map(|cow| cow.as_ref().to_string())
-                        .collect(),
-                ),
-                BodyContent::Table(_) => println!("naw?"),
-            }
-        }
-        paragraphs.join("\n")
-        // let line: Line;
+        spells::parse_doc(args.path)
     } else {
         std::fs::read_to_string(&args.path).expect("Could not read input file")
     };
+    let word_vec = spells::split_text_into_words(content);
 
-    println!("{}", content);
-    
-    let word_vec = split_text_into_words(content);
     // get our stop words
     let stop_words_string = match &args.stop_words {
         Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
@@ -166,7 +53,8 @@ fn main() {
     // let mut report = String::new();
 
     // mark up the structs.
-    let marked_up_vec: Vec<Word> = mark_up(word_vec, stop_words, args.buffer_length as usize);
+    let marked_up_vec: Vec<spells::Word> =
+        spells::mark_up(word_vec, stop_words, args.buffer_length as usize);
 
     // create report.
     let report = format!(
