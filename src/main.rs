@@ -1,5 +1,7 @@
+use docx::{document::BodyContent, DocxFile};
 use itertools;
 use regex::Regex;
+use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
@@ -103,7 +105,6 @@ fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Wor
                 .into_iter()
                 .any(|x| x.text.to_lowercase() == lowercase_word)
             {
-                println!("{} {}, {}", word.represent(), i + 1, end);
                 return Word {
                     text: word.text,
                     repeated: true,
@@ -122,7 +123,36 @@ fn main() {
 
     let args = Cli::from_args();
     // get our words.
-    let content = std::fs::read_to_string(&args.path).expect("Could not read input file");
+
+    let ext = args
+        .path
+        .extension()
+        .expect("Please specify the file extension");
+    // let content = if &args.path
+
+    let content = if ext == "docx" {
+        let docx = DocxFile::from_file(&args.path).unwrap();
+        let doc = docx.parse().unwrap();
+        let mut paragraphs: Vec<Cow<str>> = vec![];
+        for body_content in doc.document.body.iter() {
+            match body_content {
+                BodyContent::Paragraph(stuff) => paragraphs.push(
+                    stuff
+                        .iter_text()
+                        .map(|cow| cow.as_ref().to_string())
+                        .collect(),
+                ),
+                BodyContent::Table(_) => println!("naw?"),
+            }
+        }
+        paragraphs.join("\n")
+        // let line: Line;
+    } else {
+        std::fs::read_to_string(&args.path).expect("Could not read input file")
+    };
+
+    println!("{}", content);
+    
     let word_vec = split_text_into_words(content);
     // get our stop words
     let stop_words_string = match &args.stop_words {
