@@ -12,11 +12,16 @@ struct Cli {
     path: PathBuf,
 
     /// Set how far ahead to check
-    #[structopt(short = "l", long = "lookahead", default_value = "50")]
+    #[structopt(
+        short = "l",
+        long = "lookahead",
+        default_value = "50",
+        name = "Buffer Length"
+    )]
     buffer_length: u32,
 
     // Optional personal stop-word list
-    #[structopt(short = "s", long = "stopwords")]
+    #[structopt(short = "s", long = "stopwords", name = "Stop Words")]
     stop_words: Option<PathBuf>,
 }
 
