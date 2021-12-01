@@ -1,10 +1,8 @@
-use docx::{document::BodyContent, DocxFile};
-use std::borrow::Cow;
 use std::time::Instant;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
 
-mod spells;
+mod lib;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tonal-distancing", about = "Look for repeated words")]
@@ -35,11 +33,11 @@ fn main() {
     // let content = if &args.path
 
     let content = if ext == "docx" {
-        spells::parse_doc(args.path)
+        lib::parse_doc(args.path)
     } else {
         std::fs::read_to_string(&args.path).expect("Could not read input file")
     };
-    let word_vec = spells::split_text_into_words(content);
+    let word_vec = lib::split_text_into_words(content);
 
     // get our stop words
     let stop_words_string = match &args.stop_words {
@@ -53,8 +51,8 @@ fn main() {
     // let mut report = String::new();
 
     // mark up the structs.
-    let marked_up_vec: Vec<spells::Word> =
-        spells::mark_up(word_vec, stop_words, args.buffer_length as usize);
+    let marked_up_vec: Vec<lib::Word> =
+        lib::mark_up(word_vec, stop_words, args.buffer_length as usize);
 
     // create report.
     let report = format!(

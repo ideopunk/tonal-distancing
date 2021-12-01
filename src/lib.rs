@@ -68,12 +68,16 @@ pub fn split_text_into_words(s: String) -> Vec<Word> {
 }
 
 pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
+    let mut matches: Vec<u32> = vec![];
+
     v.clone()
         .into_iter()
         .enumerate()
         .map(|(i, word)| {
             let lowercase_word = word.text.to_lowercase();
-            if stop_words.contains(&&lowercase_word.as_ref()) {
+            // println!("{}, {}", word.represent(), word.text.to_lowercase());
+
+            if stop_words.contains(&lowercase_word.as_ref()) {
                 return word;
             }
 
@@ -83,19 +87,47 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
                 i + buffer_length + 1
             };
 
-            if v[i + 1..end]
+            let match_index = v[i + 1..end]
                 .into_iter()
-                .any(|x| x.text.to_lowercase() == lowercase_word)
-            {
-                return Word {
-                    text: word.text,
-                    repeated: true,
-                    paragraph: word.paragraph,
-                    word_position: word.word_position,
-                };
-            }
+                .position(|x| x.text.to_lowercase() == lowercase_word);
 
-            word
+            match match_index {
+                Some(matching_index) => {
+                    matches.push(matching_index as u32);
+                    Word {
+                        text: word.text,
+                        repeated: true,
+                        paragraph: word.paragraph,
+                        word_position: word.word_position,
+                    }
+                }
+                None => {
+                    // if they're an ending word, they still get caught
+                    if matches.contains(&word.word_position) {
+                        Word {
+                            text: word.text,
+                            repeated: true,
+                            paragraph: word.paragraph,
+                            word_position: word.word_position,
+                        }
+                    } else {
+                        word
+                    }
+                }
+            }
+            // if v[i + 1..end]
+            //     .into_iter()
+            //     .any(|x| x.text.to_lowercase() == lowercase_word)
+            // {
+            //     return Word {
+            //         text: word.text,
+            //         repeated: true,
+            //         paragraph: word.paragraph,
+            //         word_position: word.word_position,
+            //     };
+            // }
+
+            // word
         })
         .collect::<Vec<Word>>()
 }
