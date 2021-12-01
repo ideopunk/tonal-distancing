@@ -75,7 +75,12 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
         .enumerate()
         .map(|(i, word)| {
             let lowercase_word = word.text.to_lowercase();
-            // println!("{}, {}", word.represent(), word.text.to_lowercase());
+            println!(
+                "{}, {}, {:?}",
+                word.represent(),
+                word.text.to_lowercase(),
+                matches
+            );
 
             if stop_words.contains(&lowercase_word.as_ref()) {
                 return word;
@@ -93,7 +98,7 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
 
             match match_index {
                 Some(matching_index) => {
-                    matches.push(matching_index as u32);
+                    matches.push((1 + i + matching_index) as u32);
                     Word {
                         text: word.text,
                         repeated: true,
