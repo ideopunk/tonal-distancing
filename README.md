@@ -7,6 +7,7 @@ To-do:
 - Weird apostrophe stuff
 - Write to stdout instead of to file.
 - Tests
+- cli rename
 
 ```
 USAGE:

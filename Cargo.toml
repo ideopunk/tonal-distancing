@@ -1,16 +1,3 @@
-[package]
-name = "tonal-distancing"
-version = "0.1.0"
-edition = "2018"
+[workspace]
 
-[dependencies]
-structopt = "0.3.13"
-regex = "1"
-itertools = "0.10.1"
-docx = { git = "https://github.com/ManevilleF/docx-rs.git" }
-
-[profile.release]
-panic="abort"
-opt-level="z"
-lto="fat"
-codegen-units=1
+members = ["cli", "library"]

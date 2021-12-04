@@ -104,6 +104,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli"
+version = "0.1.0"
+dependencies = [
+ "library",
+ "structopt",
+]
+
+[[package]]
 name = "convert_case"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -204,6 +212,16 @@ name = "libc"
 version = "0.2.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a60553f9a9e039a333b4e9b20573b9e9b9c0bb3a11e201ccc48ef4283456d673"
+
+[[package]]
+name = "library"
+version = "0.1.0"
+dependencies = [
+ "docx",
+ "itertools",
+ "regex",
+ "structopt",
+]
 
 [[package]]
 name = "log"
@@ -435,16 +453,6 @@ dependencies = [
  "libc",
  "wasi",
  "winapi",
-]
-
-[[package]]
-name = "tonal-distancing"
-version = "0.1.0"
-dependencies = [
- "docx",
- "itertools",
- "regex",
- "structopt",
 ]
 
 [[package]]
