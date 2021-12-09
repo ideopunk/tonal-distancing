@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Word {
-    pub text: String,
+    pub pure_word: String, // sub
+    pub text: String,      // Sub!"
     pub repeated: bool,
     pub word_position: u32,
     pub paragraph: u32,
@@ -14,7 +15,7 @@ pub struct Word {
 
 impl Word {
     pub fn represent(&self) -> String {
-        let word_buff = vec![' '; 20 - self.text.len()]
+        let word_buff = vec![' '; 20 - self.pure_word.len()]
             .into_iter()
             .collect::<String>();
 
@@ -23,7 +24,7 @@ impl Word {
             .collect::<String>();
         format!(
             "Word: {}{}Paragraph: {}{}Word Position: {}",
-            self.text,
+            self.pure_word,
             word_buff,
             self.paragraph + 1,
             paragraph_buff,
@@ -49,13 +50,14 @@ pub fn split_text_into_words(s: String) -> Vec<Word> {
                 .filter_map(|word| {
                     let trimmed_word = &re.captures_iter(word).next();
                     match trimmed_word {
-                        Some(trimmed) => Some(trimmed[0].to_string()),
+                        Some(trimmed) => Some((trimmed[0].to_string().to_lowercase(), word)),
                         None => None,
                     }
                 })
                 .enumerate()
-                .map(|(j, text)| Word {
-                    text,
+                .map(|(j, tupl)| Word {
+                    pure_word: String::from(tupl.0),
+                    text: String::from(tupl.1),
                     repeated: false,
                     paragraph: i as u32,
                     word_position: j as u32,
@@ -74,15 +76,9 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
         .into_iter()
         .enumerate()
         .map(|(i, word)| {
-            let lowercase_word = word.text.to_lowercase();
-            println!(
-                "{}, {}, {:?}",
-                word.represent(),
-                word.text.to_lowercase(),
-                matches
-            );
+            println!("{}, {}, {:?}", word.represent(), word.pure_word, matches);
 
-            if stop_words.contains(&lowercase_word.as_ref()) {
+            if stop_words.contains(&word.pure_word.as_ref()) {
                 return word;
             }
 
@@ -94,26 +90,22 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
 
             let match_index = v[i + 1..end]
                 .into_iter()
-                .position(|x| x.text.to_lowercase() == lowercase_word);
+                .position(|x| x.pure_word == word.pure_word);
 
             match match_index {
                 Some(matching_index) => {
                     matches.push((1 + i + matching_index) as u32);
                     Word {
-                        text: word.text,
                         repeated: true,
-                        paragraph: word.paragraph,
-                        word_position: word.word_position,
+                        ..word
                     }
                 }
                 None => {
                     // if they're an ending word, they still get caught
                     if matches.contains(&word.word_position) {
                         Word {
-                            text: word.text,
                             repeated: true,
-                            paragraph: word.paragraph,
-                            word_position: word.word_position,
+                            ..word
                         }
                     } else {
                         word
