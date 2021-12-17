@@ -4,10 +4,13 @@ use regex::Regex;
 use std::borrow::Cow;
 use std::path::PathBuf;
 
+#[cfg(test)]
+use pretty_assertions::assert_eq;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Word {
-    pub pure_word: String, // sub
-    pub text: String,      // Sub!"
+    pub pure_word: String,     // sub
+    pub original_word: String, // Sub!"
     pub repeated: bool,
     pub word_position: u32,
     pub paragraph: u32,
@@ -34,39 +37,43 @@ impl Word {
 }
 
 pub fn split_text_into_words(s: String) -> Vec<Word> {
-    let seperator = Regex::new(r"([ !',.\n]+)").expect("Invalid regex");
+    // let's snag some words
+    let re = Regex::new(r"(\w[\w']*)[ \r\n-]*").unwrap();
 
-    let re = Regex::new(r"([\w']+)").unwrap();
+    // let's track paragraph for fun
+    let mut paragraph_count: u32 = 0;
 
-    // get all our words
-    let paragraphs_of_word_arrays: Vec<Vec<Word>> = s
-        .lines()
-        // i is used later to indicate paragraph that owns the word.
-        .enumerate()
-        .map(|(i, line)| {
-            seperator
-                .split(line)
-                .into_iter()
-                .filter_map(|word| {
-                    let trimmed_word = &re.captures_iter(word).next();
-                    match trimmed_word {
-                        Some(trimmed) => Some((trimmed[0].to_string().to_lowercase(), word)),
-                        None => None,
-                    }
-                })
-                .enumerate()
-                .map(|(j, tupl)| Word {
-                    pure_word: String::from(tupl.0),
-                    text: String::from(tupl.1),
-                    repeated: false,
-                    paragraph: i as u32,
-                    word_position: j as u32,
-                })
-                .collect::<Vec<Word>>()
+    re.captures_iter(&s)
+        .map(|preword| {
+            let original_word = preword.get(0).unwrap().as_str();
+            let pre_pure_word = preword.get(1).unwrap().as_str();
+
+            // uhh we want to iterate paragraph count without borrowing this later, but we also want to be accurate about current paragraph.
+            let mut accounting = 0;
+            if original_word.contains("\n") {
+                paragraph_count += 1;
+                accounting = 1;
+            }
+
+            (
+                String::from(pre_pure_word.to_lowercase()),
+                original_word,
+                paragraph_count - accounting,
+            )
         })
-        .collect();
+        .enumerate()
+        .map(|(j, tupl)| Word {
+            pure_word: String::from(tupl.0),
+            original_word: String::from(tupl.1),
+            repeated: false,
+            paragraph: tupl.2,
+            word_position: j as u32,
+        })
+        .collect::<Vec<Word>>()
+    // })
+    // .collect();
 
-    itertools::concat(paragraphs_of_word_arrays)
+    // itertools::concat(paragraphs_of_word_arrays)
 }
 
 pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
@@ -129,6 +136,29 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
         .collect::<Vec<Word>>()
 }
 
+pub fn report(v: &Vec<Word>) -> String {
+    let f = format!(
+        "{}",
+        v.iter()
+            .filter(|word| word.repeated)
+            .map(|word| word.represent())
+            .collect::<Vec<String>>()
+            .join("\n")
+    );
+
+    f
+}
+
+pub fn rebuild(v: Vec<Word>) -> String {
+    v.iter().fold(String::from(""), |mut acc, word| {
+        if word.repeated {
+            acc.push_str("#")
+        };
+        acc.push_str(&word.original_word);
+        acc
+    })
+}
+
 pub fn parse_doc(path: PathBuf) -> String {
     let docx = DocxFile::from_file(path).unwrap();
     let doc = docx.parse().unwrap();
@@ -145,4 +175,61 @@ pub fn parse_doc(path: PathBuf) -> String {
         }
     }
     paragraphs.join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn try_splitting_text_into_words() {
+        let word_vec = split_text_into_words(String::from("here\nI'm here-\nthe snow falling"));
+        pretty_assertions::assert_eq!(
+            word_vec,
+            vec![
+                Word {
+                    pure_word: String::from("here"),
+                    paragraph: 0,
+                    repeated: false,
+                    original_word: String::from("here\n"),
+                    word_position: 0
+                },
+                Word {
+                    pure_word: String::from("i'm"),
+                    paragraph: 1,
+                    repeated: false,
+                    original_word: String::from("I'm "),
+                    word_position: 1
+                },
+                Word {
+                    pure_word: String::from("here"),
+                    paragraph: 1,
+                    repeated: false,
+                    original_word: String::from("here-\n"),
+                    word_position: 2
+                },
+                Word {
+                    pure_word: String::from("the"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("the "),
+                    word_position: 3
+                },
+                Word {
+                    pure_word: String::from("snow"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("snow "),
+                    word_position: 4
+                },
+                Word {
+                    pure_word: String::from("falling"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("falling"),
+                    word_position: 5
+                },
+            ]
+        )
+    }
 }

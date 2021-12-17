@@ -1,7 +1,7 @@
+use library;
 use std::time::Instant;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
-use library;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tonal-distancing", about = "Look for repeated words")]
@@ -59,18 +59,14 @@ fn main() {
         library::mark_up(word_vec, stop_words, args.buffer_length as usize);
 
     // create report.
-    let report = format!(
-        "{}",
-        marked_up_vec
-            .iter()
-            .filter(|word| word.repeated)
-            .map(|word| word.represent())
-            .collect::<Vec<String>>()
-            .join("\n")
-    );
+    let report = library::report(&marked_up_vec);
 
+    let marked_up_content = library::rebuild(marked_up_vec);
+
+    let total_report = format!("{}\n\n\n{}", report, marked_up_content);
+    
     // write report to file
-    let _ = fs::write("report.txt", report);
+    let _ = fs::write("report.txt", total_report);
 
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);

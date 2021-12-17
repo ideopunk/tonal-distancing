@@ -272,6 +272,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "difference"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3304d19798a8e067e48d8e69b2c37f0b5e9b4e462504ad9e27e9f3fce02bba8"
+
+[[package]]
 name = "discard"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -620,6 +626,7 @@ version = "0.1.0"
 dependencies = [
  "docx",
  "itertools",
+ "pretty_assertions",
  "regex",
  "structopt",
 ]
@@ -841,6 +848,15 @@ name = "ppv-lite86"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed0cfbc8191465bed66e1718596ee0b0b35d5ee1f41c5df2189d0fe8bde535ba"
+
+[[package]]
+name = "pretty_assertions"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2412f3332a07c7a2a50168988dcc184f32180a9758ad470390e5f55e089f6b6e"
+dependencies = [
+ "difference",
+]
 
 [[package]]
 name = "proc-macro-error"
