@@ -36,6 +36,12 @@ impl Word {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Run {
+    pub text: String,
+    pub repeated: bool,
+}
+
 pub fn split_text_into_words(s: String) -> Vec<Word> {
     // let's snag some words
     let re = Regex::new(r"(\w[\w']*)[ \r\n-]*").unwrap();
@@ -153,6 +159,34 @@ pub fn rebuild(v: Vec<Word>) -> String {
         acc.push_str(&word.original_word);
         acc
     })
+}
+
+pub fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
+    let mut run_vec: Vec<Run> = vec![];
+
+    for word in v.iter() {
+        if run_vec.len() > 0 && word.repeated == run_vec.last().unwrap().repeated {
+            run_vec
+                .last_mut()
+                .unwrap()
+                .text
+                .push_str(&word.original_word)
+        } else {
+            run_vec.push(Run {
+                text: word.original_word.to_owned(),
+                repeated: word.repeated,
+            })
+        }
+    }
+
+    return run_vec;
+    // v.iter().fold(String::from(""), |mut acc, word| {
+    //     if word.repeated {
+    //         acc.push_str("#")
+    //     };
+    //     acc.push_str(&word.original_word);
+    //     acc
+    // })
 }
 
 pub fn parse_doc(path: PathBuf) -> String {
@@ -282,5 +316,74 @@ mod tests {
             },
         ]);
         pretty_assertions::assert_eq!(rebuilt_string, "here\nI'm here-\nthe snow falling")
+    }
+
+    #[test]
+    fn rebuild_a_run() {
+        let rebuilt_run = rebuild_run(vec![
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 0,
+                repeated: true,
+                original_word: String::from("here\n"),
+                word_position: 0,
+            },
+            Word {
+                pure_word: String::from("i'm"),
+                paragraph: 1,
+                repeated: false,
+                original_word: String::from("I'm "),
+                word_position: 1,
+            },
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 1,
+                repeated: true,
+                original_word: String::from("here-\n"),
+                word_position: 2,
+            },
+            Word {
+                pure_word: String::from("the"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("the "),
+                word_position: 3,
+            },
+            Word {
+                pure_word: String::from("snow"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("snow "),
+                word_position: 4,
+            },
+            Word {
+                pure_word: String::from("falling"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("falling"),
+                word_position: 5,
+            },
+        ]);
+        pretty_assertions::assert_eq!(
+            rebuilt_run,
+            vec![
+                Run {
+                    text: String::from("here\n"),
+                    repeated: true
+                },
+                Run {
+                    text: String::from("I'm "),
+                    repeated: false
+                },
+                Run {
+                    text: String::from("here-\n"),
+                    repeated: true
+                },
+                Run {
+                    text: String::from("the snow falling"),
+                    repeated: false
+                }
+            ]
+        )
     }
 }
