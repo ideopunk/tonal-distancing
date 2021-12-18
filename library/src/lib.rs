@@ -45,6 +45,7 @@ pub fn split_text_into_words(s: String) -> Vec<Word> {
 
     re.captures_iter(&s)
         .map(|preword| {
+            // 0 is the whole capture, 1 is the first bracket.
             let original_word = preword.get(0).unwrap().as_str();
             let pre_pure_word = preword.get(1).unwrap().as_str();
 
@@ -70,10 +71,6 @@ pub fn split_text_into_words(s: String) -> Vec<Word> {
             word_position: j as u32,
         })
         .collect::<Vec<Word>>()
-    // })
-    // .collect();
-
-    // itertools::concat(paragraphs_of_word_arrays)
 }
 
 pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
@@ -83,12 +80,11 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
         .into_iter()
         .enumerate()
         .map(|(i, word)| {
-            println!("{}, {}, {:?}", word.represent(), word.pure_word, matches);
-
             if stop_words.contains(&word.pure_word.as_ref()) {
                 return word;
             }
 
+            // don't scan beyond the end of the vec
             let end = if i + buffer_length + 1 > v.len() {
                 v.len()
             } else {
@@ -231,5 +227,60 @@ mod tests {
                 },
             ]
         )
+    }
+
+    #[test]
+    fn try_splitting_nothin() {
+        let word_vec = split_text_into_words(String::from(""));
+        pretty_assertions::assert_eq!(word_vec, vec![])
+    }
+
+    #[test]
+    fn try_rebuilding() {
+        let rebuilt_string = rebuild(vec![
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 0,
+                repeated: false,
+                original_word: String::from("here\n"),
+                word_position: 0,
+            },
+            Word {
+                pure_word: String::from("i'm"),
+                paragraph: 1,
+                repeated: false,
+                original_word: String::from("I'm "),
+                word_position: 1,
+            },
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 1,
+                repeated: false,
+                original_word: String::from("here-\n"),
+                word_position: 2,
+            },
+            Word {
+                pure_word: String::from("the"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("the "),
+                word_position: 3,
+            },
+            Word {
+                pure_word: String::from("snow"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("snow "),
+                word_position: 4,
+            },
+            Word {
+                pure_word: String::from("falling"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("falling"),
+                word_position: 5,
+            },
+        ]);
+        pretty_assertions::assert_eq!(rebuilt_string, "here\nI'm here-\nthe snow falling")
     }
 }
