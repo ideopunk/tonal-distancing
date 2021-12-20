@@ -1,5 +1,6 @@
 use docx::{document::BodyContent, DocxFile};
-use itertools;
+use thiserror::Error;
+// use itertools;
 use regex::Regex;
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -42,18 +43,39 @@ pub struct Run {
     pub repeated: bool,
 }
 
-pub fn split_text_into_words(s: String) -> Vec<Word> {
+///TonalDistanceError enumerates all possible errors returneed by this lib.
+#[derive(Error, Debug)]
+pub enum TonalDistanceError {
+    /// Represents a regex error.
+    #[error("Regex error")]
+    RegexError { source: regex::Error },
+
+    /// Represents a failure to read a docx file.
+    #[error("Failed to read from docx file")]
+    DocXReadError,
+
+    /// Represents a failure to parse a docx file.
+    #[error("Failed to parse docx file")]
+    DocXParseError { source: docx::DocxError },
+}
+
+pub fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError> {
     // let's snag some words
-    let re = Regex::new(r"(\w[\w']*)[ \r\n-]*").unwrap();
+    let re = Regex::new(r"(\w[\w']*)[ \r\n-]*");
+    let re = match re {
+        Ok(r) => r,
+        Err(e) => return Err(TonalDistanceError::RegexError { source: e }),
+    };
 
     // let's track paragraph for fun
     let mut paragraph_count: u32 = 0;
 
-    re.captures_iter(&s)
+    let split_words = re
+        .captures_iter(&s)
         .map(|preword| {
             // 0 is the whole capture, 1 is the first bracket.
-            let original_word = preword.get(0).unwrap().as_str();
-            let pre_pure_word = preword.get(1).unwrap().as_str();
+            let original_word = preword.get(0).expect("No capture found").as_str();
+            let pre_pure_word = preword.get(1).expect("No capture found").as_str();
 
             // uhh we want to iterate paragraph count without borrowing this later, but we also want to be accurate about current paragraph.
             let mut accounting = 0;
@@ -76,7 +98,9 @@ pub fn split_text_into_words(s: String) -> Vec<Word> {
             paragraph: tupl.2,
             word_position: j as u32,
         })
-        .collect::<Vec<Word>>()
+        .collect::<Vec<Word>>();
+
+    Ok(split_words)
 }
 
 pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
@@ -180,18 +204,11 @@ pub fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
     }
 
     return run_vec;
-    // v.iter().fold(String::from(""), |mut acc, word| {
-    //     if word.repeated {
-    //         acc.push_str("#")
-    //     };
-    //     acc.push_str(&word.original_word);
-    //     acc
-    // })
 }
 
-pub fn parse_doc(path: PathBuf) -> String {
-    let docx = DocxFile::from_file(path).unwrap();
-    let doc = docx.parse().unwrap();
+pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
+    let docx = DocxFile::from_file(path)?;
+    let doc = docx.parse()?;
     let mut paragraphs: Vec<Cow<str>> = vec![];
     for body_content in doc.document.body.iter() {
         match body_content {
@@ -204,7 +221,7 @@ pub fn parse_doc(path: PathBuf) -> String {
             BodyContent::Table(_) => println!("naw?"),
         }
     }
-    paragraphs.join("\n")
+    Ok(paragraphs.join("\n"))
 }
 
 #[cfg(test)]
@@ -212,8 +229,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn try_splitting_text_into_words() {
-        let word_vec = split_text_into_words(String::from("here\nI'm here-\nthe snow falling"));
+    fn test_splitting_text_into_words() -> Result<(), TonalDistanceError> {
+        let word_vec = split_text_into_words(String::from("here\nI'm here-\nthe snow falling"))?;
         pretty_assertions::assert_eq!(
             word_vec,
             vec![
@@ -260,17 +277,117 @@ mod tests {
                     word_position: 5
                 },
             ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_splitting_nothin() -> Result<(), TonalDistanceError> {
+        let word_vec = split_text_into_words(String::from(""))?;
+        pretty_assertions::assert_eq!(word_vec, vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_markup() {
+        let original_vec = vec![
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 0,
+                repeated: false,
+                original_word: String::from("here\n"),
+                word_position: 0,
+            },
+            Word {
+                pure_word: String::from("i'm"),
+                paragraph: 1,
+                repeated: false,
+                original_word: String::from("I'm "),
+                word_position: 1,
+            },
+            Word {
+                pure_word: String::from("here"),
+                paragraph: 1,
+                repeated: false,
+                original_word: String::from("here-\n"),
+                word_position: 2,
+            },
+            Word {
+                pure_word: String::from("the"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("the "),
+                word_position: 3,
+            },
+            Word {
+                pure_word: String::from("snow"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("snow "),
+                word_position: 4,
+            },
+            Word {
+                pure_word: String::from("falling"),
+                paragraph: 2,
+                repeated: false,
+                original_word: String::from("falling"),
+                word_position: 5,
+            },
+        ];
+
+        let marked_up_vec = mark_up(original_vec, vec![], 10);
+
+        pretty_assertions::assert_eq!(
+            marked_up_vec,
+            [
+                Word {
+                    pure_word: String::from("here"),
+                    paragraph: 0,
+                    repeated: true,
+                    original_word: String::from("here\n"),
+                    word_position: 0,
+                },
+                Word {
+                    pure_word: String::from("i'm"),
+                    paragraph: 1,
+                    repeated: false,
+                    original_word: String::from("I'm "),
+                    word_position: 1,
+                },
+                Word {
+                    pure_word: String::from("here"),
+                    paragraph: 1,
+                    repeated: true,
+                    original_word: String::from("here-\n"),
+                    word_position: 2,
+                },
+                Word {
+                    pure_word: String::from("the"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("the "),
+                    word_position: 3,
+                },
+                Word {
+                    pure_word: String::from("snow"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("snow "),
+                    word_position: 4,
+                },
+                Word {
+                    pure_word: String::from("falling"),
+                    paragraph: 2,
+                    repeated: false,
+                    original_word: String::from("falling"),
+                    word_position: 5,
+                },
+            ]
         )
     }
 
     #[test]
-    fn try_splitting_nothin() {
-        let word_vec = split_text_into_words(String::from(""));
-        pretty_assertions::assert_eq!(word_vec, vec![])
-    }
-
-    #[test]
-    fn try_rebuilding() {
+    fn test_rebuilding() {
         let rebuilt_string = rebuild(vec![
             Word {
                 pure_word: String::from("here"),
@@ -319,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn rebuild_a_run() {
+    fn test_rebuild_a_run() {
         let rebuilt_run = rebuild_run(vec![
             Word {
                 pure_word: String::from("here"),

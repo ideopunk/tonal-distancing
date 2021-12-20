@@ -1,4 +1,5 @@
 use library;
+use std::error::Error;
 use std::time::Instant;
 use std::{fs, path::PathBuf};
 use structopt::StructOpt;
@@ -24,7 +25,7 @@ struct Cli {
     stop_words: Option<PathBuf>,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let now = Instant::now();
 
     let args = Cli::from_args();
@@ -37,11 +38,13 @@ fn main() {
     // let content = if &args.path
 
     let content = if ext == "docx" {
-        library::parse_doc(args.path)
+        library::parse_doc(args.path)?
     } else {
-        std::fs::read_to_string(&args.path).expect("Could not read input file")
+        std::fs::read_to_string(&args.path)?
+        // std::fs::read_to_string(&args.path).expect("Could not read input file")?
     };
-    let word_vec = library::split_text_into_words(content);
+
+    let word_vec = library::split_text_into_words(content)?;
 
     // get our stop words
     let stop_words_string = match &args.stop_words {
@@ -64,10 +67,12 @@ fn main() {
     let marked_up_content = library::rebuild(marked_up_vec);
 
     let total_report = format!("{}\n\n\n{}", report, marked_up_content);
-    
+
     // write report to file
     let _ = fs::write("report.txt", total_report);
 
     let elapsed = now.elapsed();
     println!("Elapsed: {:.2?}", elapsed);
+
+    Ok(())
 }
