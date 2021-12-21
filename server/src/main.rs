@@ -3,8 +3,23 @@ extern crate rocket;
 
 use anyhow::{Context, Result};
 use rocket::data::{Data, ToByteUnit};
-use rocket::serde::json::Json;
+use rocket::serde::{json::Json, Serialize};
+use serde::ser::{SerializeStruct, Serializer};
 use std::fs;
+
+struct Wrapper(library::Run);
+
+impl Serialize for Wrapper {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Run", 2)?;
+        s.serialize_field("text", &self.0.text)?;
+        s.serialize_field("repeated", &self.0.repeated)?;
+        s.end()
+    }
+}
 
 #[get("/")]
 fn index() -> &'static str {
@@ -20,7 +35,7 @@ async fn report(
     lookahead: Option<usize>,
     stop_words: Option<Vec<String>>,
     prefile: Data<'_>,
-) -> Result<Json<Vec<library::Run>>, rocket::response::Debug<anyhow::Error>> {
+) -> Result<Json<Vec<Wrapper>>, rocket::response::Debug<anyhow::Error>> {
     // default if none
     let lookahead = lookahead.unwrap_or(50);
 
@@ -51,7 +66,10 @@ async fn report(
 
     let marked_up_vec = library::mark_up(word_vec, stop_words_vec_str, lookahead);
 
-    let res = library::rebuild_run(marked_up_vec);
+    let res = library::rebuild_run(marked_up_vec)
+        .iter()
+        .map(|word| Wrapper(word.clone()))
+        .collect();
 
     Ok(Json(res))
 }
