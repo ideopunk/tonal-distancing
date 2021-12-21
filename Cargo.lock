@@ -695,6 +695,8 @@ dependencies = [
  "itertools",
  "pretty_assertions",
  "regex",
+ "serde",
+ "serde_json",
  "structopt",
  "thiserror",
 ]
@@ -1198,6 +1200,7 @@ dependencies = [
  "rocket_codegen",
  "rocket_http",
  "serde",
+ "serde_json",
  "state",
  "tempfile",
  "time",
@@ -1340,8 +1343,12 @@ dependencies = [
 name = "server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "library",
  "rocket",
+ "serde",
+ "serde_derive",
+ "serde_json",
 ]
 
 [[package]]

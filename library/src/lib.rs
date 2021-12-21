@@ -7,6 +7,9 @@ use regex::Regex;
 use std::path::PathBuf;
 use thiserror::Error;
 
+#[cfg(feature = "serde_support")]
+use serde::{Serialize};
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Word {
     pub pure_word: String,     // sub
@@ -37,6 +40,7 @@ impl Word {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[cfg_attr(feature = "serde_support", derive(Serialize))]
 pub struct Run {
     pub text: String,
     pub repeated: bool,
