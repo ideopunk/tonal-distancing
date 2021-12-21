@@ -6,10 +6,9 @@ This tool reports back on word proximity. I decided to build it after writing a 
 
 To-do:
 - Full readme
-- Weird apostrophe stuff
-- Write to stdout instead of to file.
-- Tests
-- cli rename
+- Cli and server tests
+- Cli rename
+- Server throttling
 
 ```
 USAGE:
