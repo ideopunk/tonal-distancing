@@ -6,6 +6,7 @@ edition = "2018"
 [dependencies]
 regex = "1"
 thiserror = "1.0"
+anyhow = "1.0"
 docx-rs = "0.2.0"
 
 [dev-dependencies]

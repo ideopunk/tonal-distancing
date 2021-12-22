@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use rocket::data::{Data, ToByteUnit};
 use rocket::serde::{json::Json, Serialize};
 use serde::ser::{SerializeStruct, Serializer};
@@ -36,42 +36,31 @@ async fn report(
     stop_words: Option<Vec<String>>,
     prefile: Data<'_>,
 ) -> Result<Json<Vec<Wrapper>>, rocket::response::Debug<anyhow::Error>> {
-    // default if none
-    let lookahead = lookahead.unwrap_or(50);
-
-    // default if none
-    let stop_words_vec_string = stop_words.unwrap_or_else(|| {
-        let pre_vec =
-            fs::read_to_string("stop_words.txt").expect("Could not read the stop words file");
-
-        pre_vec
-            .lines()
-            .map(|s| String::from(s))
-            .collect::<Vec<String>>()
-    });
-
-    let stop_words_vec_str = stop_words_vec_string
-        .iter()
-        .map(|word| &**word)
-        .collect::<Vec<&str>>();
-
-    let strang = prefile
+    // get content
+    let content = prefile
         .open(2.megabytes())
         .into_string()
         .await
-        .context("Failed to open uploaded file")?;
+        .context("Failed to open uploaded file")?
+        .into_inner();
 
-    let word_vec = library::split_text_into_words(strang.into_inner())
-        .context("failed to split text into words")?;
+    // get look ahead
+    let lookahead = lookahead.unwrap_or(50);
 
-    let marked_up_vec = library::mark_up(word_vec, stop_words_vec_str, lookahead);
+    // get stop words
+    let stop_words = library::get_stop_words_from_string(stop_words);
 
-    let res = library::rebuild_run(marked_up_vec)
-        .iter()
-        .map(|word| Wrapper(word.clone()))
-        .collect();
+    // get our report
+    let res = library::tell_you_how_bad(content, lookahead, stop_words, library::ResponseType::Raw)
+        .context("Failed to process content")?;
 
-    Ok(Json(res))
+    match res {
+        library::Response::VecOfRuns(vor) => {
+            let wrapped = vor.iter().map(|word| Wrapper(word.clone())).collect();
+            Ok(Json(wrapped))
+        }
+        _ => bail!("huh!!"),
+    }
 }
 
 #[launch]

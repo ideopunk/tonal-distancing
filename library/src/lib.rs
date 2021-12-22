@@ -1,9 +1,37 @@
+use anyhow::{bail, Result};
 use docx_rs;
 use regex::Regex;
 use std::fs::File;
 use std::io::Read;
-use std::path::PathBuf;
+use std::str::FromStr;
+use std::{fs, path::PathBuf};
 use thiserror::Error;
+
+#[derive(Debug)]
+pub enum ResponseType {
+    Raw,
+    // Colorized,
+    Report,
+}
+
+#[derive(Debug)]
+pub enum Response {
+    VecOfRuns(Vec<Run>),
+    Str(String),
+}
+
+impl FromStr for ResponseType {
+    type Err = anyhow::Error;
+
+    fn from_str(res_type: &str) -> Result<Self, anyhow::Error> {
+        match res_type {
+            "raw" => Ok(ResponseType::Raw),
+            // "colorized" => Ok(ResponseType::Colorized),
+            "report" => Ok(ResponseType::Report),
+            _ => bail!("Could not parse a response type"),
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Word {
@@ -103,14 +131,14 @@ pub fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError>
     Ok(split_words)
 }
 
-pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec<Word> {
+pub fn mark_up(v: Vec<Word>, stop_words: Vec<String>, buffer_length: usize) -> Vec<Word> {
     let mut matches: Vec<u32> = vec![];
 
     v.clone()
         .into_iter()
         .enumerate()
         .map(|(i, word)| {
-            if stop_words.contains(&word.pure_word.as_ref()) {
+            if stop_words.contains(&word.pure_word) {
                 return word;
             }
 
@@ -145,19 +173,6 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<&str>, buffer_length: usize) -> Vec
                     }
                 }
             }
-            // if v[i + 1..end]
-            //     .into_iter()
-            //     .any(|x| x.text.to_lowercase() == lowercase_word)
-            // {
-            //     return Word {
-            //         text: word.text,
-            //         repeated: true,
-            //         paragraph: word.paragraph,
-            //         word_position: word.word_position,
-            //     };
-            // }
-
-            // word
         })
         .collect::<Vec<Word>>()
 }
@@ -218,29 +233,63 @@ pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
         Ok(result) => Ok(result.json()),
         Err(source) => Err(TonalDistanceError::DocXReadError { source }),
     }
+}
 
-    // Ok(res.json)
+pub fn get_content_from_file(pb: PathBuf) -> Result<String, TonalDistanceError> {
+    let ext = pb.extension().expect("Please specify the file extension");
 
-    // let mut  paragraphs = res.document.children.map(child);
-    // let docx = docx_rs::from_file(path)?;
-    // let doc = docx.parse()?;
-    // let mut paragraphs: Vec<Cow<str>> = vec![];
-    // for body_content in res.document.children.iter() {
-    //     match body_content {
-    //         docx_rs::DocumentChild::Paragraph(stuff) => paragraphs.push(
-    //             stuff
-    //                 .children()
-    //                 .iter()
-    //                 .map(|par_chil| match par_chil {
-    //                     docx_rs::ParagraphChild::Run(stuff) => println!("{}", stuff),
-    //                     _ => println!("naw!"),
-    //                 })
-    //                 .collect(),
-    //         ),
-    //         _ => println!("naw?"),
-    //     }
-    // }
-    // Ok(paragraphs.join("\n"))
+    let content = if ext == "docx" {
+        parse_doc(pb.clone())?
+    } else {
+        std::fs::read_to_string(pb)?
+    };
+
+    Ok(content)
+}
+
+pub fn get_stop_words_from_string(pre_stop_words: Option<Vec<String>>) -> Vec<String> {
+    pre_stop_words.unwrap_or_else(|| {
+        let pre_vec =
+            fs::read_to_string("stop_words.txt").expect("Could not read the stop words file");
+
+        pre_vec
+            .lines()
+            .map(|s| String::from(s))
+            .collect::<Vec<String>>()
+    })
+}
+
+pub fn get_stop_words_from_file(pre_stop_words: &Option<PathBuf>) -> Vec<String> {
+    let stop_words_string = match pre_stop_words {
+        Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
+        None => fs::read_to_string("stop_words.txt").expect("Could not read the stop words file"),
+    };
+
+    stop_words_string
+        .split("\n")
+        .map(|s| s.to_owned())
+        .collect::<Vec<String>>()
+}
+
+pub fn tell_you_how_bad(
+    s: String,
+    buffer_length: usize,
+    stop_words: Vec<String>,
+    response: ResponseType,
+) -> Result<Response, TonalDistanceError> {
+    let word_vec = split_text_into_words(s)?;
+
+    // mark up the structs.
+    let marked_up_vec: Vec<Word> = mark_up(word_vec, stop_words, buffer_length);
+
+    // create report.
+    let uh: Response = match response {
+        ResponseType::Raw => Response::VecOfRuns(rebuild_run(marked_up_vec)),
+        // ResponseType::Colorized => library::rebuild(marked_up_vec, true),
+        ResponseType::Report => Response::Str(report(&marked_up_vec)),
+    };
+
+    Ok(uh)
 }
 
 #[cfg(test)]

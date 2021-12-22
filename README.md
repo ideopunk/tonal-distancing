@@ -8,7 +8,6 @@ To-do:
 - Full readme
 - Cli and server tests
 - Cli rename
-- Server
 - Server throttling
 
 ```

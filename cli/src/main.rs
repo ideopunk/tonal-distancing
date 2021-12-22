@@ -1,30 +1,9 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use library;
 use std::io::{self, Write};
-use std::str::FromStr;
 // use std::time::Instant;
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 use structopt::StructOpt;
-
-#[derive(Debug)]
-enum ResponseType {
-    Raw,
-    // Colorized,
-    Report,
-}
-
-impl FromStr for ResponseType {
-    type Err = anyhow::Error;
-
-    fn from_str(res_type: &str) -> Result<Self, anyhow::Error> {
-        match res_type {
-            "raw" => Ok(ResponseType::Raw),
-            // "colorized" => Ok(ResponseType::Colorized),
-            "report" => Ok(ResponseType::Report),
-            _ => bail!("Could not parse a response type"),
-        }
-    }
-}
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tonal-distancing", about = "Look for repeated words")]
@@ -51,65 +30,41 @@ struct Cli {
         short = "r",
         long = "response",
         name = "Response type",
-        default_value = "raw",
+        default_value = "report",
         case_insensitive = true
     )]
-    response: ResponseType,
+    response: library::ResponseType,
 }
 
-fn main() -> Result<()> {
+pub fn write_report(report: library::Response) -> () {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    writeln!(handle, "{:?}", report);
+}
+
+pub fn main() -> Result<()> {
     // let now = Instant::now();
 
     let args = Cli::from_args();
-    // get our words.
 
-    let ext = args
-        .path
-        .extension()
-        .expect("Please specify the file extension");
-    // let content = if &args.path
-
-    let content = if ext == "docx" {
-        library::parse_doc(args.path.clone()).context(format!(
-            "Failed to read the contents of {} to string",
-            args.path.to_str().unwrap()
-        ))?
-    } else {
-        std::fs::read_to_string(&args.path).context(format!(
-            "Failed to read the contents of {} to string",
-            args.path.to_str().unwrap()
-        ))?
-        // std::fs::read_to_string(&args.path).expect("Could not read input file")?
-    };
-
-    let word_vec = library::split_text_into_words(content)?;
+    // get our big ol string
+    let content =
+        library::get_content_from_file(args.path).context("Failed to get content from file")?;
 
     // get our stop words
-    let stop_words_string = match &args.stop_words {
-        Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
-        None => fs::read_to_string("stop_words.txt").expect("Could not read the stop words file"),
-    };
-    let stop_words = stop_words_string.split("\n").collect::<Vec<&str>>();
+    let stop_words = library::get_stop_words_from_file(&args.stop_words);
 
-    // initialize the report
-    let _ = fs::File::create("report.txt").expect("Failed to create report file.");
-    // let mut report = String::new();
+    // get our report
+    let res = library::tell_you_how_bad(
+        content,
+        args.buffer_length as usize,
+        stop_words,
+        args.response,
+    )
+    .context("Failed to process content")?;
 
-    // mark up the structs.
-    let marked_up_vec: Vec<library::Word> =
-        library::mark_up(word_vec, stop_words, args.buffer_length as usize);
-
-    // create report.
-    let res: String = match args.response {
-        ResponseType::Raw => library::rebuild(marked_up_vec, false),
-        // ResponseType::Colorized => library::rebuild(marked_up_vec, true),
-        ResponseType::Report => library::report(&marked_up_vec),
-    };
-
-    // write report to file
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    writeln!(handle, "{}", res);
+    // write report to stdout
+    write_report(res);
 
     // let elapsed = now.elapsed();
     // println!("Elapsed: {:.2?}", elapsed);

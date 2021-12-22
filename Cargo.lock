@@ -682,6 +682,7 @@ checksum = "a60553f9a9e039a333b4e9b20573b9e9b9c0bb3a11e201ccc48ef4283456d673"
 name = "library"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "docx-rs",
  "pretty_assertions",
  "regex",
