@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use library;
+use library::{definitions, functions};
 use std::io::{self, Write};
 // use std::time::Instant;
 use std::path::PathBuf;
@@ -33,10 +33,10 @@ struct Cli {
         default_value = "report",
         case_insensitive = true
     )]
-    response: library::ResponseType,
+    response: definitions::ResponseType,
 }
 
-pub fn write_report(report: library::Response) -> () {
+pub fn write_report(report: definitions::Response) -> () {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
     let _ = writeln!(handle, "{:?}", report);
@@ -50,13 +50,13 @@ pub fn main() -> Result<()> {
 
     // get our big ol string
     let content =
-        library::get_content_from_file(args.path).context("Failed to get content from file")?;
+        functions::get_content_from_file(args.path).context("Failed to get content from file")?;
 
     // get our stop words
-    let stop_words = library::get_stop_words_from_file(&args.stop_words);
+    let stop_words = functions::get_stop_words_from_file(&args.stop_words);
 
     // get our report
-    let res = library::tell_you_how_bad(
+    let res = functions::tell_you_how_bad(
         content,
         args.buffer_length as usize,
         stop_words,

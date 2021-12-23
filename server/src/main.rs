@@ -2,11 +2,12 @@
 extern crate rocket;
 
 use anyhow::{Context, Result};
+use library::{definitions, functions};
 use rocket::data::{Data, ToByteUnit};
 use rocket::serde::{json::Json, Serialize};
 use serde::ser::{SerializeStruct, Serializer};
 
-struct Wrapper(library::Run);
+struct Wrapper(definitions::Run);
 
 impl Serialize for Wrapper {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -47,19 +48,24 @@ async fn report(
     let lookahead = lookahead.unwrap_or(50);
 
     // get stop words
-    let stop_words = library::get_stop_words_from_string(stop_words);
+    let stop_words = functions::get_stop_words_from_string(stop_words);
 
     // get our report
-    let res = library::tell_you_how_bad(content, lookahead, stop_words, library::ResponseType::Raw)
-        .context("Failed to process content")?;
+    let res = functions::tell_you_how_bad(
+        content,
+        lookahead,
+        stop_words,
+        definitions::ResponseType::Raw,
+    )
+    .context("Failed to process content")?;
 
     let uh = match res {
-        library::Response::VecOfRuns(val) => {
+        definitions::Response::VecOfRuns(val) => {
             let wrapped = val.iter().map(|word| Wrapper(word.clone())).collect();
             Ok(Json(wrapped))
         }
         _ => Err(rocket::response::Debug(anyhow::Error::new(
-            library::TonalDistanceError::UhhhError,
+            definitions::TonalDistanceError::UhhhError,
         ))),
     };
 
