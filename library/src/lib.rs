@@ -1,6 +1,8 @@
 use anyhow::{bail, Result};
+use docx::{document::BodyContent, DocxFile};
 use docx_rs;
 use regex::Regex;
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::Read;
 use std::str::FromStr;
@@ -215,18 +217,22 @@ fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
     return run_vec;
 }
 
-fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
-    let mut file = File::open(path)?;
-    let mut buf = vec![];
-    file.read_to_end(&mut buf)?;
-
-    // let mut file = File::create("./test.json").unwrap();
-    let res = docx_rs::read_docx(&buf);
-
-    match res {
-        Ok(result) => Ok(result.json()),
-        Err(source) => Err(TonalDistanceError::DocXReadError { source }),
+pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
+    let docx = DocxFile::from_file(path).unwrap();
+    let doc = docx.parse().unwrap();
+    let mut paragraphs: Vec<Cow<str>> = vec![];
+    for body_content in doc.document.body.iter() {
+        match body_content {
+            BodyContent::Paragraph(stuff) => paragraphs.push(
+                stuff
+                    .iter_text()
+                    .map(|cow| cow.as_ref().to_string())
+                    .collect(),
+            ),
+            BodyContent::Table(_) => println!("naw?"),
+        }
     }
+    Ok(paragraphs.join("\n"))
 }
 
 pub fn get_content_from_file(pb: PathBuf) -> Result<String, TonalDistanceError> {
@@ -348,6 +354,13 @@ mod tests {
     fn test_splitting_nothin() -> Result<(), TonalDistanceError> {
         let word_vec = split_text_into_words(String::from(""))?;
         pretty_assertions::assert_eq!(word_vec, vec![]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_doc() -> Result<(), TonalDistanceError> {
+        let docstr = parse_doc(PathBuf::from("../test_files/test.docx"))?;
+        pretty_assertions::assert_eq!(docstr, "here\nI'm here-\nthe snow falling");
         Ok(())
     }
 
