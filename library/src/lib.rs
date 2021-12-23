@@ -11,7 +11,7 @@ use thiserror::Error;
 pub enum ResponseType {
     Raw,
     // Colorized,
-    Report,
+    Formatted,
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl FromStr for ResponseType {
         match res_type {
             "raw" => Ok(ResponseType::Raw),
             // "colorized" => Ok(ResponseType::Colorized),
-            "report" => Ok(ResponseType::Report),
+            "formatted" => Ok(ResponseType::Formatted),
             _ => bail!("Could not parse a response type"),
         }
     }
@@ -44,16 +44,16 @@ pub struct Word {
 
 impl Word {
     pub fn represent(&self) -> String {
-        let word_buff = vec![' '; 20 - self.pure_word.len()]
+        let word_buff = vec![' '; (20 - self.pure_word.len() as i32).abs() as usize]
             .into_iter()
             .collect::<String>();
 
-        let paragraph_buff = vec![' '; 10 - (self.paragraph + 1).to_string().len()]
+        let paragraph_buff = vec![' '; 20 - self.paragraph.to_string().len()]
             .into_iter()
             .collect::<String>();
         format!(
             "Word: {}{}Paragraph: {}{}Word Position: {}",
-            self.pure_word,
+            self.original_word,
             word_buff,
             self.paragraph + 1,
             paragraph_buff,
@@ -93,7 +93,7 @@ pub enum TonalDistanceError {
 
 fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError> {
     // let's snag some words
-    let re = Regex::new(r"(\w[\w']*)[ \r\n-]*");
+    let re = Regex::new(r"(\w[\w']*)[\W]*");
     let re = match re {
         Ok(r) => r,
         Err(e) => return Err(TonalDistanceError::RegexError { source: e }),
@@ -280,7 +280,7 @@ pub fn tell_you_how_bad(
     let response: Response = match response_type {
         ResponseType::Raw => Response::VecOfRuns(rebuild_run(marked_up_vec)),
         // ResponseType::Colorized => library::rebuild(marked_up_vec, true),
-        ResponseType::Report => Response::Str(report(&marked_up_vec)),
+        ResponseType::Formatted => Response::Str(report(&marked_up_vec)),
     };
 
     Ok(response)
