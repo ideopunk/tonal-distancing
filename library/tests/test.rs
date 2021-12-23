@@ -7,7 +7,7 @@ use std::path::PathBuf;
 fn raw_report_on_a_file() -> Result<(), definitions::TonalDistanceError> {
     let content = functions::get_content_from_file(PathBuf::from("../test_files/test3.txt"))?;
 
-    let stop_words = functions::get_stop_words_from_string(Some(vec![]));
+    let stop_words = functions::get_stop_words(Some(definitions::Source::Raw(String::from(""))));
 
     let res = functions::tell_you_how_bad(content, 50, stop_words, definitions::ResponseType::Raw)?;
 
@@ -67,7 +67,7 @@ fn raw_report_on_a_file() -> Result<(), definitions::TonalDistanceError> {
 fn formatted_report_on_a_file() -> Result<(), definitions::TonalDistanceError> {
     let content = functions::get_content_from_file(PathBuf::from("../test_files/test3.txt"))?;
 
-    let stop_words = functions::get_stop_words_from_string(Some(vec![]));
+    let stop_words = functions::get_stop_words(Some(definitions::Source::Raw(String::from(""))));
 
     let res = functions::tell_you_how_bad(
         content,

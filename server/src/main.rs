@@ -48,7 +48,10 @@ async fn report(
     let lookahead = lookahead.unwrap_or(50);
 
     // get stop words
-    let stop_words = functions::get_stop_words_from_string(stop_words);
+    let stop_words = match stop_words {
+        Some(sw) => functions::get_stop_words(Some(definitions::Source::Raw(sw.join("")))),
+        None => functions::get_stop_words(None),
+    };
 
     // get our report
     let res = functions::tell_you_how_bad(

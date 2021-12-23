@@ -159,28 +159,38 @@ pub fn get_content_from_file(pb: PathBuf) -> Result<String, TonalDistanceError> 
     Ok(content)
 }
 
-pub fn get_stop_words_from_string(pre_stop_words: Option<Vec<String>>) -> Vec<String> {
-    pre_stop_words.unwrap_or_else(|| {
+pub fn get_stop_words(pre_stop_words: Option<Source>) -> Vec<String> {
+    if let Some(existing) = pre_stop_words {
+        println!("IF!");
+
+        match existing {
+            // stop words are in a file
+            Source::Pb(src) => {
+                let stop_words_string =
+                    fs::read_to_string(src).expect("Could not read the stop words file");
+
+                stop_words_string
+                    .split("\n")
+                    .map(|s| s.to_owned())
+                    .collect::<Vec<String>>()
+            }
+
+            // stop words are a string
+            Source::Raw(src) => src
+                .split(",")
+                .map(|s| s.to_owned())
+                .collect::<Vec<String>>(),
+        }
+    } else {
+        println!("ELSE!");
         let pre_vec =
-            fs::read_to_string("stop_words.txt").expect("Could not read the stop words file");
+            fs::read_to_string("../stop_words.txt").expect("Could not read the stop words file");
 
         pre_vec
             .lines()
             .map(|s| String::from(s))
             .collect::<Vec<String>>()
-    })
-}
-
-pub fn get_stop_words_from_file(pre_stop_words: &Option<PathBuf>) -> Vec<String> {
-    let stop_words_string = match pre_stop_words {
-        Some(file) => fs::read_to_string(file).expect("Could not read the stop words file"),
-        None => fs::read_to_string("stop_words.txt").expect("Could not read the stop words file"),
-    };
-
-    stop_words_string
-        .split("\n")
-        .map(|s| s.to_owned())
-        .collect::<Vec<String>>()
+    }
 }
 
 pub fn tell_you_how_bad(

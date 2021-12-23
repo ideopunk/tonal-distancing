@@ -1,8 +1,15 @@
 use anyhow::{bail, Result};
 use docx::DocxError;
 use std::fmt;
+use std::path::PathBuf;
 use std::str::FromStr;
 use thiserror::Error;
+
+#[derive(Debug)]
+pub enum Source {
+    Pb(PathBuf),
+    Raw(String),
+}
 
 #[derive(Debug)]
 pub enum ResponseType {

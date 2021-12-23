@@ -2,15 +2,27 @@ use anyhow::{Context, Result};
 use library::{definitions, functions};
 use std::io::{self, Write};
 // use std::time::Instant;
+use std::fs::metadata;
 use std::path::PathBuf;
 use structopt::StructOpt;
+
+fn source_from_str(input: &str) -> definitions::Source {
+    let pb = PathBuf::from(input);
+
+    let check = metadata(&pb);
+
+    match check {
+        Ok(_) => definitions::Source::Pb(pb),
+        Err(_) => definitions::Source::Raw(String::from(input)),
+    }
+}
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "tonal-distancing", about = "Look for repeated words")]
 struct Cli {
-    /// Name of file
-    #[structopt(parse(from_os_str))]
-    path: PathBuf,
+    /// Content to evaluate. Accepts a file path or a string.
+    #[structopt(parse(from_str = source_from_str))]
+    source: definitions::Source,
 
     /// Set how far ahead to check
     #[structopt(
@@ -21,9 +33,9 @@ struct Cli {
     )]
     buffer_length: u32,
 
-    // Optional personal stop-word list
-    #[structopt(short = "s", long = "stopwords", name = "Stop Words")]
-    stop_words: Option<PathBuf>,
+    // Optional personal stop-word list. Accepts a comma-separated list, or a file path.
+    #[structopt(short = "s", long = "stopwords", name = "Stop Words", parse(from_str = source_from_str))]
+    stop_words: Option<definitions::Source>,
 
     // Optional output specification
     #[structopt(
@@ -49,11 +61,15 @@ pub fn main() -> Result<()> {
     let args = Cli::from_args();
 
     // get our big ol string
-    let content =
-        functions::get_content_from_file(args.path).context("Failed to get content from file")?;
+    let content = match args.source {
+        definitions::Source::Pb(src) => {
+            functions::get_content_from_file(src).context("Failed to get content from file")?
+        }
+        definitions::Source::Raw(src) => src,
+    };
 
     // get our stop words
-    let stop_words = functions::get_stop_words_from_file(&args.stop_words);
+    let stop_words = functions::get_stop_words(args.stop_words);
 
     // get our report
     let res = functions::tell_you_how_bad(
