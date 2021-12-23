@@ -12,8 +12,3 @@ docx-rs = "0.2.0"
 [dev-dependencies]
 pretty_assertions = "0.1.0"
 
-[profile.release]
-panic="abort"
-opt-level="z"
-lto="fat"
-codegen-units=1

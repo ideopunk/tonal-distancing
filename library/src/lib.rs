@@ -82,12 +82,16 @@ pub enum TonalDistanceError {
         source: docx_rs::ReaderError,
     },
 
+    /// Should not occur... ;)
+    #[error("How did you get here?")]
+    UhhhError,
+
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 }
 
-pub fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError> {
+fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError> {
     // let's snag some words
     let re = Regex::new(r"(\w[\w']*)[ \r\n-]*");
     let re = match re {
@@ -131,7 +135,7 @@ pub fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError>
     Ok(split_words)
 }
 
-pub fn mark_up(v: Vec<Word>, stop_words: Vec<String>, buffer_length: usize) -> Vec<Word> {
+fn mark_up(v: Vec<Word>, stop_words: Vec<String>, buffer_length: usize) -> Vec<Word> {
     let mut matches: Vec<u32> = vec![];
 
     v.clone()
@@ -177,7 +181,7 @@ pub fn mark_up(v: Vec<Word>, stop_words: Vec<String>, buffer_length: usize) -> V
         .collect::<Vec<Word>>()
 }
 
-pub fn report(v: &Vec<Word>) -> String {
+fn report(v: &Vec<Word>) -> String {
     let f = format!(
         "{}",
         v.iter()
@@ -190,17 +194,7 @@ pub fn report(v: &Vec<Word>) -> String {
     f
 }
 
-pub fn rebuild(v: Vec<Word>, _: bool) -> String {
-    v.iter().fold(String::from(""), |mut acc, word| {
-        if word.repeated {
-            acc.push_str("#")
-        };
-        acc.push_str(&word.original_word);
-        acc
-    })
-}
-
-pub fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
+fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
     let mut run_vec: Vec<Run> = vec![];
 
     for word in v.iter() {
@@ -221,7 +215,7 @@ pub fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
     return run_vec;
 }
 
-pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
+fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
     let mut file = File::open(path)?;
     let mut buf = vec![];
     file.read_to_end(&mut buf)?;
@@ -275,7 +269,7 @@ pub fn tell_you_how_bad(
     s: String,
     buffer_length: usize,
     stop_words: Vec<String>,
-    response: ResponseType,
+    response_type: ResponseType,
 ) -> Result<Response, TonalDistanceError> {
     let word_vec = split_text_into_words(s)?;
 
@@ -283,13 +277,13 @@ pub fn tell_you_how_bad(
     let marked_up_vec: Vec<Word> = mark_up(word_vec, stop_words, buffer_length);
 
     // create report.
-    let uh: Response = match response {
+    let response: Response = match response_type {
         ResponseType::Raw => Response::VecOfRuns(rebuild_run(marked_up_vec)),
         // ResponseType::Colorized => library::rebuild(marked_up_vec, true),
         ResponseType::Report => Response::Str(report(&marked_up_vec)),
     };
 
-    Ok(uh)
+    Ok(response)
 }
 
 #[cfg(test)]
@@ -453,58 +447,6 @@ mod tests {
                 },
             ]
         )
-    }
-
-    #[test]
-    fn test_rebuilding() {
-        let rebuilt_string = rebuild(
-            vec![
-                Word {
-                    pure_word: String::from("here"),
-                    paragraph: 0,
-                    repeated: false,
-                    original_word: String::from("here\n"),
-                    word_position: 0,
-                },
-                Word {
-                    pure_word: String::from("i'm"),
-                    paragraph: 1,
-                    repeated: false,
-                    original_word: String::from("I'm "),
-                    word_position: 1,
-                },
-                Word {
-                    pure_word: String::from("here"),
-                    paragraph: 1,
-                    repeated: false,
-                    original_word: String::from("here-\n"),
-                    word_position: 2,
-                },
-                Word {
-                    pure_word: String::from("the"),
-                    paragraph: 2,
-                    repeated: false,
-                    original_word: String::from("the "),
-                    word_position: 3,
-                },
-                Word {
-                    pure_word: String::from("snow"),
-                    paragraph: 2,
-                    repeated: false,
-                    original_word: String::from("snow "),
-                    word_position: 4,
-                },
-                Word {
-                    pure_word: String::from("falling"),
-                    paragraph: 2,
-                    repeated: false,
-                    original_word: String::from("falling"),
-                    word_position: 5,
-                },
-            ],
-            false,
-        );
-        pretty_assertions::assert_eq!(rebuilt_string, "here\nI'm here-\nthe snow falling")
     }
 
     #[test]

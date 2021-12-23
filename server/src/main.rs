@@ -1,11 +1,10 @@
 #[macro_use]
 extern crate rocket;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use rocket::data::{Data, ToByteUnit};
 use rocket::serde::{json::Json, Serialize};
 use serde::ser::{SerializeStruct, Serializer};
-use std::fs;
 
 struct Wrapper(library::Run);
 
@@ -54,13 +53,17 @@ async fn report(
     let res = library::tell_you_how_bad(content, lookahead, stop_words, library::ResponseType::Raw)
         .context("Failed to process content")?;
 
-    match res {
-        library::Response::VecOfRuns(vor) => {
-            let wrapped = vor.iter().map(|word| Wrapper(word.clone())).collect();
+    let uh = match res {
+        library::Response::VecOfRuns(val) => {
+            let wrapped = val.iter().map(|word| Wrapper(word.clone())).collect();
             Ok(Json(wrapped))
         }
-        _ => bail!("huh!!"),
-    }
+        _ => Err(rocket::response::Debug(anyhow::Error::new(
+            library::TonalDistanceError::UhhhError,
+        ))),
+    };
+
+    uh
 }
 
 #[launch]

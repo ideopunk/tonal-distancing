@@ -39,7 +39,8 @@ struct Cli {
 pub fn write_report(report: library::Response) -> () {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
-    writeln!(handle, "{:?}", report);
+    let _ = writeln!(handle, "{:?}", report);
+    ()
 }
 
 pub fn main() -> Result<()> {

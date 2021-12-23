@@ -1,3 +1,9 @@
 [workspace]
 
 members = ["library", "cli", "server"]
+
+[profile.release]
+panic="abort"
+opt-level="z"
+lto="fat"
+codegen-units=1
