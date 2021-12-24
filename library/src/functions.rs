@@ -136,9 +136,9 @@ pub fn colorize_run(v: Vec<Run>) -> String {
 
     for r in v.iter() {
         if r.repeated {
-            s.push_str(&r.text.red().bold());
+            s.push_str(&r.text.red().bold().to_string());
         } else {
-            s.push_str(&r.text);
+            s.push_str(&r.text.to_string());
         }
     }
     s
@@ -149,14 +149,14 @@ pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
     let doc = docx.parse().unwrap();
     let mut paragraphs: Vec<Cow<str>> = vec![];
     for body_content in doc.document.body.iter() {
-        match body_content {
-            BodyContent::Paragraph(stuff) => paragraphs.push(
+        // ignore other BodyContent types, like Table.
+        if let BodyContent::Paragraph(stuff) = body_content {
+            paragraphs.push(
                 stuff
                     .iter_text()
                     .map(|cow| cow.as_ref().to_string())
                     .collect(),
-            ),
-            BodyContent::Table(_) => println!("naw?"),
+            )
         }
     }
     Ok(paragraphs.join("\n"))
@@ -176,8 +176,6 @@ pub fn get_content_from_file(pb: PathBuf) -> Result<String, TonalDistanceError> 
 
 pub fn get_stop_words(pre_stop_words: Option<Source>) -> Vec<String> {
     if let Some(existing) = pre_stop_words {
-        println!("IF!");
-
         match existing {
             // stop words are in a file
             Source::Pb(src) => {
@@ -197,7 +195,6 @@ pub fn get_stop_words(pre_stop_words: Option<Source>) -> Vec<String> {
                 .collect::<Vec<String>>(),
         }
     } else {
-        println!("ELSE!");
         let pre_vec =
             fs::read_to_string("./stop_words.txt").expect("Could not read the stop words file");
 

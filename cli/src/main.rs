@@ -57,9 +57,11 @@ pub fn write_report(report: definitions::Response) -> () {
             ()
         }
         definitions::Response::VecOfRuns(v) => {
+            // render!
+            let colorized = functions::colorize_run(v);
             let stdout = io::stdout();
             let mut handle = stdout.lock();
-            let _ = writeln!(handle, "{:?}", v);
+            let _ = writeln!(handle, "{}", colorized);
             ()
         }
     };
