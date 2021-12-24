@@ -239,4 +239,10 @@ mod tests {
             ]
         )
     }
+
+    #[test]
+    fn test_stop_words_from_file() {
+        let stop_words = get_stop_words(Some(Source::Pb(PathBuf::from("../stop_words.txt"))));
+        pretty_assertions::assert_eq!(stop_words.contains(&String::from("and")), true)
+    }
 }

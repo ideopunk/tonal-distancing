@@ -1,10 +1,14 @@
 #[macro_use]
 extern crate rocket;
 
-use anyhow::{Context, Result};
 use library::{definitions, functions};
 use rocket::data::{Data, ToByteUnit};
-use rocket::serde::{json::Json, Serialize};
+use rocket::http::{ContentType, Status};
+use rocket::request::Request;
+use rocket::response;
+use rocket::response::{Responder, Response};
+use rocket::serde::json::{json, Value};
+use rocket::serde::Serialize;
 use serde::ser::{SerializeStruct, Serializer};
 
 struct Wrapper(definitions::Run);
@@ -18,6 +22,21 @@ impl Serialize for Wrapper {
         s.serialize_field("text", &self.0.text)?;
         s.serialize_field("repeated", &self.0.repeated)?;
         s.end()
+    }
+}
+
+#[derive(Debug)]
+struct ApiResponse {
+    json: Value,
+    status: Status,
+}
+
+impl<'r, 'o: 'r> Responder<'r, 'o> for ApiResponse {
+    fn respond_to(self, req: &Request) -> response::Result<'o> {
+        Response::build_from(self.json.respond_to(&req).unwrap())
+            .status(self.status)
+            .header(ContentType::JSON)
+            .ok()
     }
 }
 
@@ -35,14 +54,20 @@ async fn report(
     lookahead: Option<usize>,
     stop_words: Option<Vec<String>>,
     prefile: Data<'_>,
-) -> Result<Json<Vec<Wrapper>>, rocket::response::Debug<anyhow::Error>> {
+) -> ApiResponse {
     // get content
-    let content = prefile
-        .open(2.megabytes())
-        .into_string()
-        .await
-        .context("Failed to open uploaded file")?
-        .into_inner();
+    let content = prefile.open(2.megabytes()).into_string().await;
+
+    let content = match content {
+        Ok(c) => c,
+        Err(_) => {
+            return ApiResponse {
+                json: json!("Failed to open uploaded file"),
+                status: Status { code: 404 },
+            }
+        }
+    };
+    let content = content.into_inner();
 
     // get look ahead
     let lookahead = lookahead.unwrap_or(50);
@@ -59,17 +84,34 @@ async fn report(
         lookahead,
         stop_words,
         definitions::ResponseType::Raw,
-    )
-    .context("Failed to process content")?;
+    );
+
+    let res = match res {
+        Ok(resp) => resp,
+        Err(_) => {
+            return ApiResponse {
+                json: json!("Failed to process content"),
+                status: Status { code: 500 },
+            }
+        }
+    };
 
     let uh = match res {
         definitions::Response::VecOfRuns(val) => {
-            let wrapped = val.iter().map(|word| Wrapper(word.clone())).collect();
-            Ok(Json(wrapped))
+            let wrapped = val
+                .iter()
+                .map(|word| Wrapper(word.clone()))
+                .collect::<Vec<Wrapper>>();
+            // Ok(Json(wrapped))
+            ApiResponse {
+                json: json!(wrapped),
+                status: Status { code: 200 },
+            }
         }
-        _ => Err(rocket::response::Debug(anyhow::Error::new(
-            definitions::TonalDistanceError::UhhhError,
-        ))),
+        _ => ApiResponse {
+            json: json!("act of god"),
+            status: Status { code: 500 },
+        },
     };
 
     uh

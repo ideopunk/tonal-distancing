@@ -87,3 +87,28 @@ fn formatted_report_on_a_file() -> Result<(), definitions::TonalDistanceError> {
 
     Ok(())
 }
+
+#[test]
+fn stop_word_test() -> Result<(), definitions::TonalDistanceError> {
+    let content = functions::get_content_from_file(PathBuf::from("../test_files/test3.txt"))?;
+
+    let stop_words = functions::get_stop_words(Some(definitions::Source::Raw(String::from("and"))));
+
+    let res = functions::tell_you_how_bad(
+        content,
+        50,
+        stop_words,
+        definitions::ResponseType::Formatted,
+    )?;
+
+    match res {
+        definitions::Response::Str(resp) => {
+            pretty_assertions::assert_eq!(
+                resp,
+                "Word: yes                  Paragraph: 1                   Word Position: 1\nWord: yes                  Paragraph: 1                   Word Position: 16\nWord: yes                  Paragraph: 1                   Word Position: 25\nWord: I                    Paragraph: 1                   Word Position: 26\nWord: yes                  Paragraph: 1                   Word Position: 28\nWord: I                    Paragraph: 1                   Word Position: 29\nWord: Yes.                 Paragraph: 1                   Word Position: 31");
+        }
+        _ => panic!(),
+    }
+
+    Ok(())
+}
