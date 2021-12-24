@@ -33,15 +33,19 @@ struct Cli {
     )]
     buffer_length: u32,
 
-    // Optional personal stop-word list. Accepts a comma-separated list, or a file path.
+    /// Optional personal stop-word list. 
+    /// Accepts a comma-separated list, or a file path to a line-separated list.
+    /// If not provided, a default list is used.
     #[structopt(short = "s", long = "stopwords", name = "Stop Words", parse(from_str = source_from_str))]
     stop_words: Option<definitions::Source>,
 
-    // Optional output specification
+    /// Optional output specification.
+    /// [values: "raw" | "formatted"] 
+    /// [default: "formatted"]
     #[structopt(
         short = "r",
         long = "response",
-        name = "Response type",
+        name = "Response Type",
         // default_value = "report",
         case_insensitive = true
     )]
@@ -102,3 +106,4 @@ pub fn main() -> Result<()> {
 
     Ok(())
 }
+
