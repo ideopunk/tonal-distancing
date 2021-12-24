@@ -42,16 +42,27 @@ struct Cli {
         short = "r",
         long = "response",
         name = "Response type",
-        default_value = "report",
+        // default_value = "report",
         case_insensitive = true
     )]
-    response: definitions::ResponseType,
+    response: Option<definitions::ResponseType>,
 }
 
 pub fn write_report(report: definitions::Response) -> () {
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
-    let _ = writeln!(handle, "{:?}", report);
+    match report {
+        definitions::Response::Str(s) => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            let _ = writeln!(handle, "{}", s);
+            ()
+        }
+        definitions::Response::VecOfRuns(v) => {
+            let stdout = io::stdout();
+            let mut handle = stdout.lock();
+            let _ = writeln!(handle, "{:?}", v);
+            ()
+        }
+    };
     ()
 }
 
@@ -76,7 +87,8 @@ pub fn main() -> Result<()> {
         content,
         args.buffer_length as usize,
         stop_words,
-        args.response,
+        args.response
+            .unwrap_or(definitions::ResponseType::Formatted),
     )
     .context("Failed to process content")?;
 

@@ -93,8 +93,8 @@ pub enum TonalDistanceError {
     DocXReadError { source: DocError },
 
     /// Should not occur... ;)
-    #[error("How did you get here?")]
-    UhhhError,
+    #[error("Oops!")]
+    GenericError,
 
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]

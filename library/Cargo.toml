@@ -7,6 +7,7 @@ edition = "2018"
 regex = "1"
 thiserror = "1.0"
 anyhow = "1.0"
+colored = "2"
 docx = { git = "https://github.com/ManevilleF/docx-rs.git" }
 
 

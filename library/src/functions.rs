@@ -1,5 +1,7 @@
 use crate::definitions::*;
 use anyhow::Result;
+use colored::*;
+
 use docx::{document::BodyContent, DocxFile};
 use regex::Regex;
 use std::borrow::Cow;
@@ -23,7 +25,7 @@ pub fn split_text_into_words(s: String) -> Result<Vec<Word>, TonalDistanceError>
             let original_word = preword.get(0).expect("No capture found").as_str();
             let pre_pure_word = preword.get(1).expect("No capture found").as_str();
 
-            // uhh we want to iterate paragraph count without borrowing this later, but we also want to be accurate about current paragraph.
+            // we want to iterate paragraph count without borrowing this later, but we also want to be accurate about current paragraph.
             let mut accounting = 0;
             if original_word.contains("\n") {
                 paragraph_count += 1;
@@ -129,6 +131,19 @@ pub fn rebuild_run(v: Vec<Word>) -> Vec<Run> {
     return run_vec;
 }
 
+pub fn colorize_run(v: Vec<Run>) -> String {
+    let mut s = String::from("");
+
+    for r in v.iter() {
+        if r.repeated {
+            s.push_str(&r.text.red().bold());
+        } else {
+            s.push_str(&r.text);
+        }
+    }
+    s
+}
+
 pub fn parse_doc(path: PathBuf) -> Result<String, TonalDistanceError> {
     let docx = DocxFile::from_file(path).unwrap();
     let doc = docx.parse().unwrap();
@@ -184,7 +199,7 @@ pub fn get_stop_words(pre_stop_words: Option<Source>) -> Vec<String> {
     } else {
         println!("ELSE!");
         let pre_vec =
-            fs::read_to_string("../stop_words.txt").expect("Could not read the stop words file");
+            fs::read_to_string("./stop_words.txt").expect("Could not read the stop words file");
 
         pre_vec
             .lines()

@@ -96,7 +96,7 @@ async fn report(
         }
     };
 
-    let uh = match res {
+    match res {
         definitions::Response::VecOfRuns(val) => {
             let wrapped = val
                 .iter()
@@ -112,9 +112,7 @@ async fn report(
             json: json!("act of god"),
             status: Status { code: 500 },
         },
-    };
-
-    uh
+    }
 }
 
 #[launch]
