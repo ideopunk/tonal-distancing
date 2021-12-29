@@ -3,13 +3,36 @@ extern crate rocket;
 
 use library::{definitions, functions};
 use rocket::data::{Data, ToByteUnit};
-use rocket::http::{ContentType, Status};
+use rocket::http::{ContentType, Header, Status};
+
+use rocket::fairing::{Fairing, Info, Kind};
 use rocket::request::Request;
 use rocket::response;
 use rocket::response::{Responder, Response};
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
 use serde::ser::{SerializeStruct, Serializer};
+
+pub struct CORS;
+
+#[rocket::async_trait]
+impl Fairing for CORS {
+    fn info(&self) -> Info {
+        Info {
+            name: "Add CORS headers to requests",
+            kind: Kind::Response,
+        }
+    }
+
+    // <'r>(&self, _req: &'r Request<'_>, _res: &mut Response<'r>)
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        // fn on_response<'a>(&self, _request: &'a Request<'_>, response: &mut Response<'a>) {
+        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, OPTIONS"));
+        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    }
+}
 
 struct Wrapper(definitions::Run);
 
@@ -69,6 +92,8 @@ async fn report(
     };
     let content = content.into_inner();
 
+    // println!("{}", content);
+
     // get look ahead
     let lookahead = lookahead.unwrap_or(50);
 
@@ -115,7 +140,17 @@ async fn report(
     }
 }
 
+#[options("/report?<_lookahead>&<_stop_words>")]
+fn report_preflight(
+    _lookahead: Option<usize>,
+    _stop_words: Option<Vec<String>>,
+) -> response::status::NoContent {
+    response::status::NoContent
+}
+
 #[launch]
 fn rocket() -> _ {
-    rocket::build().mount("/", routes![index, report])
+    rocket::build()
+        .attach(CORS)
+        .mount("/", routes![index, report, report_preflight])
 }
