@@ -4,4 +4,4 @@ WORKDIR /tonal-distancing
 COPY . .
 RUN cargo build --release -p server
 
-CMD ./target/release/tonal-distancing
+CMD ./target/release/server
