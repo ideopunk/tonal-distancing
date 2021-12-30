@@ -99,7 +99,13 @@ async fn report(
 
     // get stop words
     let stop_words = match stop_words {
-        Some(sw) => functions::get_stop_words(Some(definitions::Source::Raw(sw.join("")))),
+        Some(sw) => {
+            if sw.len() > 0 {
+                functions::get_stop_words(Some(definitions::Source::Raw(sw.join(""))))
+            } else {
+                functions::get_stop_words(None)
+            }
+        }
         None => functions::get_stop_words(None),
     };
 
