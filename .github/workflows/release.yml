@@ -18,4 +18,4 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   RUSTTARGET: ${{ matrix.target }}
                   EXTRA_FILES: "README.md stop_words.txt"
-                  SRC_DIR: "./cli"
+                  SRC_DIR: "./tdist"
