@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["library", "cli", "server"]
+members = ["library", "tdist", "server"]
 
 [profile.release]
 panic="abort"
