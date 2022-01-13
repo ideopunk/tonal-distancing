@@ -2,16 +2,16 @@
 extern crate rocket;
 
 use library::{definitions, functions};
-use rocket::data::{Data, ToByteUnit};
-use rocket::http::{ContentType, Header, Status};
-
 use rocket::fairing::{Fairing, Info, Kind};
+use rocket::fs::TempFile;
+use rocket::http::{ContentType, Header, Status};
 use rocket::request::Request;
 use rocket::response;
 use rocket::response::{Responder, Response};
 use rocket::serde::json::{json, Value};
 use rocket::serde::Serialize;
 use serde::ser::{SerializeStruct, Serializer};
+use std::path::PathBuf;
 
 pub struct CORS;
 
@@ -70,29 +70,50 @@ fn index() -> &'static str {
 
 #[post(
     "/report?<lookahead>&<stop_words>",
-    format = "plain",
     data = "<prefile>"
 )]
 async fn report(
     lookahead: Option<usize>,
     stop_words: Option<Vec<String>>,
-    prefile: Data<'_>,
+    mut prefile: TempFile<'_>,
 ) -> ApiResponse {
-    // get content
-    let content = prefile.open(2.megabytes()).into_string().await;
+    let content_type = prefile.content_type();
 
-    let content = match content {
-        Ok(c) => c,
-        Err(_) => {
+
+    let content_type = match content_type {
+        Some(con_type) => con_type,
+        None => {
             return ApiResponse {
-                json: json!("Failed to open uploaded file"),
+                json: json!("Please include a content type."),
                 status: Status { code: 404 },
             }
         }
     };
-    let content = content.into_inner();
 
-    // println!("{}", content);
+    let path = if content_type.to_string() == "application/msword" {
+        PathBuf::from("/tmp/file.docx")
+    } else {
+        PathBuf::from("/tmp/file.txt")
+    };
+
+    let res = prefile.persist_to(path.clone()).await;
+    if let Err(_) = res {
+        return ApiResponse {
+            json: json!("Failed to persist file"),
+            status: Status { code: 500 },
+        };
+    }
+
+    let content = functions::get_content_from_file(path);
+    let content = match content {
+        Ok(c) => c,
+        Err(_) => {
+            return ApiResponse {
+                json: json!("Failed to get content from file"),
+                status: Status { code: 404 },
+            };
+        }
+    };
 
     // get look ahead
     let lookahead = lookahead.unwrap_or(50);
