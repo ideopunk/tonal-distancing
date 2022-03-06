@@ -68,17 +68,13 @@ fn index() -> &'static str {
     "Hello, world!"
 }
 
-#[post(
-    "/report?<lookahead>&<stop_words>",
-    data = "<prefile>"
-)]
+#[post("/report?<lookahead>&<stop_words>", data = "<prefile>")]
 async fn report(
     lookahead: Option<usize>,
     stop_words: Option<Vec<String>>,
     mut prefile: TempFile<'_>,
 ) -> ApiResponse {
     let content_type = prefile.content_type();
-
 
     let content_type = match content_type {
         Some(con_type) => con_type,
@@ -115,6 +111,7 @@ async fn report(
         }
     };
 
+    println!("{}", content);
     // get look ahead
     let lookahead = lookahead.unwrap_or(50);
 
@@ -150,11 +147,11 @@ async fn report(
 
     match res {
         definitions::Response::VecOfRuns(val) => {
+            println!("{:?}", val);
             let wrapped = val
                 .iter()
                 .map(|word| Wrapper(word.clone()))
                 .collect::<Vec<Wrapper>>();
-            // Ok(Json(wrapped))
             ApiResponse {
                 json: json!(wrapped),
                 status: Status { code: 200 },

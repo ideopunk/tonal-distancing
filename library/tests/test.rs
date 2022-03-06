@@ -112,3 +112,40 @@ fn stop_word_test() -> Result<(), definitions::TonalDistanceError> {
 
     Ok(())
 }
+
+#[test]
+fn report_on_docx() -> Result<(), definitions::TonalDistanceError> {
+    let docstr = functions::parse_doc(PathBuf::from("../test_files/test.docx"))?;
+
+    let stop_words = functions::get_stop_words(Some(definitions::Source::Raw(String::from("and"))));
+
+    let res = functions::tell_you_how_bad(docstr, 50, stop_words, definitions::ResponseType::Raw)?;
+
+    match res {
+        definitions::Response::VecOfRuns(resp) => {
+            pretty_assertions::assert_eq!(
+                resp,
+                vec![
+                    definitions::Run {
+                        text: String::from("here\n"),
+                        repeated: true
+                    },
+                    definitions::Run {
+                        text: String::from("I'm "),
+                        repeated: false
+                    },
+                    definitions::Run {
+                        text: String::from("here-\n"),
+                        repeated: true
+                    },
+                    definitions::Run {
+                        text: String::from("the snow falling"),
+                        repeated: false
+                    }
+                ]
+            );
+        }
+        _ => panic!(),
+    }
+    Ok(())
+}
